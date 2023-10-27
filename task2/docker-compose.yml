@@ -1,0 +1,69 @@
+version: '3.7'
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.listen-address=0.0.0.0:9090
+    ports:
+      - '9090:9090'
+    links:
+      - mysql-exporter
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - '3000:3000'
+    links:
+      - prometheus
+    depends_on:
+      - prometheus
+
+  mysql-server:
+    image: mysql:5.6
+    environment:
+      - MYSQL_ROOT_PASSWORD=admin
+    ports:
+      - '3306:3306'
+
+  mysql-exporter:
+    image: prom/mysqld-exporter:latest
+    command:
+      - --mysqld.username=admin:admin
+      - --mysqld.address=mysql-server:3306
+      - --collect.global_status
+      - --collect.info_schema.innodb_metrics
+      - --collect.auto_increment.columns
+      - --collect.info_schema.processlist
+      - --collect.binlog_size
+      - --collect.info_schema.tablestats
+      - --collect.global_variables
+      - --collect.info_schema.query_response_time
+      - --collect.info_schema.userstats
+      - --collect.info_schema.tables
+      - --collect.perf_schema.tablelocks
+      - --collect.perf_schema.file_events
+      - --collect.perf_schema.eventswaits
+      - --collect.perf_schema.indexiowaits
+      - --collect.perf_schema.tableiowaits
+      - --collect.slave_status
+      - --web.listen-address-0.0.0.0:9104
+    ports:
+      - '9104:9104'
+    links:
+      - mysql-server
+    depends_on:
+      - mysql-server
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    command:
+      - --config.file=/etc/alertmanager/config.yml
+    ports:
+      - '9093:9093'
+    volumes:
+      - ./prometheus/alert-rules.yml:/etc/alertmanager/config.yml

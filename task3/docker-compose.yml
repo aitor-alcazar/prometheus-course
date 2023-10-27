@@ -1,0 +1,78 @@
+version: '3.7'
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.listen-address=0.0.0.0:9090
+    ports:
+      - 9090:9090
+    links:
+      - mysql-exporter
+      - alertmanager
+      - prometheus-federation1
+      - prometheus-federation2
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - '3000:3000'
+    links:
+      - prometheus
+    depends_on:
+      - prometheus
+
+  mysql-server:
+    image: mysql:5.6
+    environment:
+      - MYSQL_ROOT_PASSWORD=admin
+    ports:
+      - '3306:3306'
+
+  mysql-exporter:
+    image: prom/mysqld-exporter:latest
+    command:
+      - --mysqld.username=admin:admin
+      - --mysqld.address=mysql-server:3306
+      - --collect.global_status
+      - --web.listen-address-0.0.0.0:9104
+    ports:
+      - '9104:9104'
+    links:
+      - mysql-server
+    depends_on:
+      - mysql-server
+
+  alertmanager:
+    image: prom/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+    ports:
+      - '9093:9093'
+    volumes:
+      - ./alertmanager/config.yml:/etc/alertmanager/config.yml
+
+  prometheus-federation1:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus/prometheus-federation1.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.listen-address=0.0.0.0:9091
+    ports:
+      - 9091:9091
+
+  prometheus-federation2:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus/prometheus-federation2.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.listen-address=0.0.0.0:9092
+    ports:
+      - 9092:9092
+
